@@ -1,0 +1,100 @@
+version: '3.4'
+
+services:
+
+  consul_server1:
+    image: consul:1.15.4
+    container_name: consul_server1
+    command: agent -server -client=0.0.0.0 -bootstrap -node=consul_server1 -datacenter=dc1
+    environment:
+      - TZ=Asia/Shanghai
+
+  consul_server2:
+    depends_on:
+      - consul_server1
+    image: consul:1.15.4
+    container_name: consul_server2
+    command: agent -server -client=0.0.0.0 -retry-join=consul_server1 -node=consul_server2 -datacenter=dc1
+    environment:
+      - TZ=Asia/Shanghai
+
+  consul_server3:
+    depends_on:
+      - consul_server1
+    image: consul:1.15.4
+    container_name: consul_server3
+    command: agent -server -client=0.0.0.0 -retry-join=consul_server1 -node=consul_server3 -datacenter=dc1
+    environment:
+      - TZ=Asia/Shanghai
+
+  consul_client1:
+    depends_on:
+      - consul_server1
+    image: consul:1.15.4
+    container_name: consul_client1
+    ports:
+      - 8500:8500
+    command: agent -ui -client=0.0.0.0 -retry-join=consul_server1 -node=consul_client1 -datacenter=dc1
+    environment:
+      - TZ=Asia/Shanghai
+
+  minio:
+    image: minio/minio:latest
+    container_name: MinIO
+    ports:
+      - 9000:9000
+      - 9090:9090
+    environment:
+      - TZ=Asia/Shanghai
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=Password123
+    volumes:
+      - .\MinIO\data:/data
+      - .\MinIO\config:/root/.minio
+    command: server /data --console-address ":9090"
+    
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: RabbitMQ
+    ports:
+      - 15672:15672
+      - 5672:5672
+      - 25672:25672
+      - 61613:61613
+      - 1883:1883
+    environment:
+      - TZ=Asia/Shanghai
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=Password123
+    volumes:
+      - .\RabbitMQ\data:/var/lib/rabbitmq
+      - .\RabbitMQ\log:/var/log/rabbitmq
+
+  redis:
+    image: redis:alpine
+    container_name: Redis
+    ports:
+      - 6379:6379
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - .\Redis\redis.conf:/etc/redis/redis.conf
+      - .\Redis\data:/data
+    logging:
+      options:
+        max-size: 100m
+        max-file: 2
+    command: redis-server /etc/redis/redis.conf  --appendonly yes  --requirepass Password123
+
+  seq:
+    image: datalust/seq
+    container_name: Seq
+    ports:
+      - 8001:80
+      - 5341:5341
+    environment:
+      - TZ=Asia/Shanghai
+      - ACCEPT_EULA=Y
+      - SEQ_CACHE_SYSTEMTAMTARGET=0
+    volumes:
+      - .\Seq\data:/data
